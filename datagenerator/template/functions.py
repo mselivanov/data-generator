@@ -7,7 +7,46 @@ from random import randint
 from random import seed
 from uuid import uuid4
 from string import ascii_letters
+from functools import partial
+import re
+from copy import deepcopy
+from datetime import datetime
+from datetime import date
+from datetime import timedelta
+import names
+from random_words import RandomWords
 
+from datagenerator.cache.cache import GLOBAL_CACHE
+
+__FUNCTION_PLACEHOLDER = re.compile('\$\{(.+)\}')
+__SELF_REFERENCE = "SELF"
+__RANDOM_WORDS = RandomWords()
+from_template = None
+
+def transform_object(obj, late_eval_list):
+    for k, _ in obj.items():
+        if isinstance(obj[k], str):
+            m = __FUNCTION_PLACEHOLDER.search(obj[k])
+            if m:
+                if m.group(1) == __SELF_REFERENCE:
+                    generated_obj_name = "gen" + random_uuid_string().replace('-', '_')
+                    globals()[generated_obj_name] = obj
+                    obj[k] = generated_obj_name + obj[k][m.end():]
+                    late_eval_list.append((obj, k))
+                else:
+                    obj[k] = eval(m.group(1), globals(), globals())            
+        elif obj[k] is None:
+            obj[k] = ""
+        elif isinstance(obj[k], dict):
+            obj[k] = transform_object(obj[k], late_eval_list)
+        else:
+            raise Exception('Unknown value in template')
+    return obj    
+
+#TODO: rethink this function
+def eval_list(late_eval_list):
+    for late_eval_expr in late_eval_list:
+        late_eval_expr[0][late_eval_expr[1]] = eval(late_eval_expr[0][late_eval_expr[1]], globals(), globals()) 
 
 def _random_char_sequence(num_of_symbols, char_base):
     """
@@ -37,7 +76,12 @@ def alpha(num_of_symbols):
     """
     return _random_char_sequence(num_of_symbols, ascii_letters)
 
+def random_word():
+    return __RANDOM_WORDS.random_word()
 
+def random_sentence(word_count):
+    return " ".join(__RANDOM_WORDS.random_words(count = word_count))
+    
 def array(num_elements, element_func, *element_func_args):
     """
     Returns array of elements with a length of num_elements.
@@ -50,3 +94,69 @@ def random_uuid_string():
     Generates random UUID and returns it as a hex string: '12345678-1234-5678-1234-567812345678'
     """
     return str(uuid4())
+    
+def find_template(templates_list, template_name):
+    """
+    Function returns copy of a template with a name template_name from templates_list. 
+    """
+    result_list = [template for template in templates_list if template_name == template['name']]
+    return deepcopy(result_list[0]) if result_list else {"template":{}} 
+
+def __from_template(templates_list, template_name):
+    template = find_template(templates_list, template_name)["template"]
+    late_eval_list = []
+    transform_object(template, late_eval_list)
+    eval_list(late_eval_list)
+    return template    
+
+def __init(templates):
+    global from_template 
+    from_template = partial(__from_template, templates) 
+
+def cache(entity_key, entity_type):
+    """
+    Function adds entity key to global cache
+    """
+    GLOBAL_CACHE.add_element(entity_type, entity_key)
+    return entity_key
+
+def is_in_cache(entity_type, entity_key):
+    return GLOBAL_CACHE.probe(entity_type, entity_key)
+
+def current_datetime():
+    """
+    Returns current datetime (local) in format YYYY-MM-DDTHH24:MI:SS.SSSSSS 
+    """
+    return datetime.isoformat(datetime.now())
+
+def from_cache(entity_type):
+    entity = GLOBAL_CACHE.get_least_used(entity_type)
+    return entity.key
+
+def random_full_name():
+    return names.get_full_name()
+
+def random_date(start_years_from_now, end_years_from_now):
+    """
+    Function returns random date in a period. Where: 
+        - starting date is today minus start_years_from_now
+        - ending date is today minus end_years_from_now
+    """
+    _today = datetime.today()
+    start_date = _today.replace(year = _today.year - start_years_from_now)
+    end_date = _today.replace(year = _today.year - end_years_from_now)
+    random_date = start_date + timedelta(days = random_int(0, (end_date - start_date).days))
+    return date.isoformat(random_date)
+
+def generate_unique_key(key_format, key_parts_generators, entity_type, num_of_tries):
+    while True:
+        key_parts_values = {}
+        for k, v in  key_parts_generators.items():
+            key_parts_values[k] = v[0](*v[1:])
+        key_candidate = key_format.format(**key_parts_values)  
+        if not GLOBAL_CACHE.probe(entity_type, key_candidate):
+            return key_candidate
+        num_of_tries -= 1
+        if num_of_tries <= 0:
+            raise Exception('Failed to generate unique key for: {0}'.format(entity_type))  
+            
