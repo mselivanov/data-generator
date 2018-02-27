@@ -11,7 +11,9 @@ import datagenerator.loaders.pgloader as pgl
 from datagenerator.template.functions import __from_template
 from datagenerator.template.functions import __init
 from datagenerator.producer.csvproducer import produce_csv
-
+from datagenerator.validator.validator import ValidatorException
+from datagenerator.validator.validator import ParametersValidator
+from datagenerator.validator.validator import ModuleValidator
 
 
 def export_to_csv(file_path, template_name, number_of_rows):
@@ -58,16 +60,20 @@ def launch(workflow, templates):
     for step in workflow["steps"]:
         dispatch(step, templates)
 
-def main():
-    # TODO: validate command lines params using validator
-    m = loader.load_module(sys.argv[1])    
-    # TODO: validate loaded module for predefined variables
-    configuration = m.CONFIGURATION
-    templates = m.TEMPLATES
-    workflow = m.WORKFLOW
-    # TODO: Move command dispatch to separate module
-    globals()['CONFIGURATION'] = configuration
-    launch(workflow, templates)
+def main():    
+    try:
+        ParametersValidator.validate(sys.argv)
+        file_path = sys.argv[1]
+        m = loader.load_module(file_path)
+        ModuleValidator.validate(m)
+        configuration = m.CONFIGURATION
+        templates = m.TEMPLATES["templates"]
+        workflow = m.WORKFLOW
+        # TODO: Move command dispatch to separate module
+        globals()['CONFIGURATION'] = configuration
+        launch(workflow, templates)
+    except ValidatorException as e:
+        print(e)
 
 if __name__ == "__main__":
     main()
