@@ -22,6 +22,7 @@ __FUNCTION_PLACEHOLDER = re.compile('\$\{(.+)\}')
 __SELF_REFERENCE = "SELF"
 __RANDOM_WORDS = RandomWords()
 from_template = None
+from_configuration = None
 
 def transform_object(obj, late_eval_list):
     for k, _ in obj.items():
@@ -102,16 +103,32 @@ def find_template(templates_list, template_name):
     result_list = [template for template in templates_list if template_name == template['name']]
     return deepcopy(result_list[0]) if result_list else {"template":{}} 
 
-def __from_template(templates_list, template_name):
+def find_configuration(configuration_list, configuration_name):
+    """
+    Function returns copy of a configuration with a name configuration_name from configuration_list. 
+    """
+    result_list = [configuration for configuration in configuration_list if configuration_name == configuration['name']]
+    return deepcopy(result_list[0]) if result_list else {} 
+    
+def _from_template(templates_list, template_name):
     template = find_template(templates_list, template_name)["template"]
     late_eval_list = []
     transform_object(template, late_eval_list)
     eval_list(late_eval_list)
     return template    
+    
+def _from_configuration(configuration_list, configuration_name):
+    configuration = find_configuration(configuration_list, configuration_name)
+    late_eval_list = []
+    transform_object(configuration, late_eval_list)
+    eval_list(late_eval_list)
+    return configuration    
 
-def __init(templates):
-    global from_template 
-    from_template = partial(__from_template, templates) 
+def _init(templates, configuration):
+    global from_template
+    global from_configuration
+    from_template = partial(_from_template, templates) 
+    from_configuration = partial(_from_configuration, configuration) 
 
 def cache(entity_key, entity_type):
     """
@@ -139,15 +156,28 @@ def random_full_name():
 def random_date(start_years_from_now, end_years_from_now):
     """
     Function returns random date in a period. Where: 
-        - starting date is today minus start_years_from_now
-        - ending date is today minus end_years_from_now
+        - starting date is today plus start_years_from_now
+        - ending date is today plus end_years_from_now
     """
     _today = datetime.today()
-    start_date = _today.replace(year = _today.year - start_years_from_now)
-    end_date = _today.replace(year = _today.year - end_years_from_now)
+    start_date = _today.replace(year = _today.year + start_years_from_now)
+    end_date = _today.replace(year = _today.year + end_years_from_now)
     random_date = start_date + timedelta(days = random_int(0, (end_date - start_date).days))
     return date.isoformat(random_date)
 
+    
+def past_random_date(start_years_from_now, end_years_from_now):
+    return random_date(-start_years_from_now, -end_years_from_now)
+    
+def future_random_date(start_years_from_now, end_years_from_now):
+    """
+    Function returns random date in a period. Where: 
+        - starting date is today plus start_years_from_now
+        - ending date is today plus end_years_from_now
+    """
+    return random_date(start_years_from_now, end_years_from_now)
+
+    
 def generate_unique_key(key_format, key_parts_generators, entity_type, num_of_tries):
     while True:
         key_parts_values = {}
