@@ -8,6 +8,7 @@ from random import seed
 from uuid import uuid4
 from string import ascii_letters
 from functools import partial
+import os
 import re
 from copy import deepcopy
 from datetime import datetime
@@ -176,7 +177,6 @@ def future_random_date(start_years_from_now, end_years_from_now):
         - ending date is today plus end_years_from_now
     """
     return random_date(start_years_from_now, end_years_from_now)
-
     
 def generate_unique_key(key_format, key_parts_generators, entity_type, num_of_tries):
     while True:
@@ -189,4 +189,17 @@ def generate_unique_key(key_format, key_parts_generators, entity_type, num_of_tr
         num_of_tries -= 1
         if num_of_tries <= 0:
             raise Exception('Failed to generate unique key for: {0}'.format(entity_type))  
+
+# File operations functions
+def join_path(*path_components):
+    return os.path.join(*path_components)
             
+# Example section
+def example_dir_path():
+    import datagenerator.example.example as e
+    example_dir = '.'
+    if hasattr(e, '__path__'):
+        example_dir = e.__path__[0]
+    else:
+        example_dir = e.__file__
+    return os.path.dirname(example_dir)

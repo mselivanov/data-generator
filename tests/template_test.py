@@ -2,10 +2,13 @@
 Module unit-tests template package.
 """
 import unittest
+import os
 from string import ascii_letters
 from string import hexdigits
 
 import datagenerator.template.functions as func
+
+CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
 
 class TemplateFunctionsTests(unittest.TestCase):
     """
@@ -60,6 +63,11 @@ class TemplateFunctionsTests(unittest.TestCase):
             random_uuid = func.random_uuid_string()
             self.assertEqual(len(random_uuid), uuid_length)
             self.assertFalse([_ for _ in random_uuid if _ not in allowed_symbols])
+    
+    def test_example_dir(self):
+        example_path = os.path.abspath(os.path.join(CURRENT_DIR, '..', 'datagenerator/example/'))
+        self.assertEqual(example_path, func.example_dir_path())
+        
 
 if __name__ == "__main__":
     unittest.main()

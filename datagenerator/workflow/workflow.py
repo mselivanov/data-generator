@@ -34,6 +34,9 @@ class CSVFileOutputStep(WorkflowStep):
             
     def __init__(self, step, templates, configuration):
         super().__init__(step, templates, configuration)
+        output_path = {"output_path": self.output_path}
+        functions.transform_object(output_path, [])
+        self.output_path = output_path["output_path"]
 
     def _transform(self, obj):
         for k, v in obj.items():
@@ -42,7 +45,7 @@ class CSVFileOutputStep(WorkflowStep):
         return obj
 
     def transform(self, objs):
-        return [self._transform(obj) for obj in objs] 
+        return [self._transform(obj) for obj in objs]
 
     def write_output(self, objs, append = False):
         if objs:
