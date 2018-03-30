@@ -16,39 +16,69 @@ from datetime import date
 from datetime import timedelta
 import names
 from random_words import RandomWords
+from enum import Enum
+from collections.abc import Mapping
+from collections.abc import Sequence
 
 from datagenerator.cache.cache import GLOBAL_CACHE
 
-__FUNCTION_PLACEHOLDER = re.compile('\$\{(.+)\}')
+__PLACEHOLDER = re.compile('\$\{(.+)\}')
 __SELF_REFERENCE = "SELF"
 __RANDOM_WORDS = RandomWords()
 from_template = None
 from_configuration = None
 
-def transform_object(obj, late_eval_list):
-    for k, _ in obj.items():
+# TODO: move object evaluation to dedicated module
+# TODO: implement object evaluation using classes
+
+class EvaluationStatus(Enum):
+    NOT_EVALUATED = 0
+    PARTIALLY_EVALUATED = 1
+    EVALUTED_TILL_SELF = 2
+    EVALUATED = 100    
+
+def calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status):
+    # Decrease object evaluation status
+    if object_evaluation_status.value > value_evaluation_status.value:
+        return value_evaluation_status
+    return object_evaluation_status
+
+def evaluate_str(str_value):
+    """"""
+    m = __PLACEHOLDER.search(str_value)
+    evaluated = str_value
+    evaluation_status = EvaluationStatus.EVALUATED
+    if m:
+        evaluated = m.group(1)
+        if __PLACEHOLDER.search(evaluated):
+            evaluation_status = EvaluationStatus.PARTIALLY_EVALUATED
+        else:
+            evaluated = eval(evaluated, globals(), globals())
+            if isinstance(evaluated, Mapping) or isinstance(evaluated, Sequence):
+                evaluation_status = EvaluationStatus.PARTIALLY_EVALUATED            
+    return (evaluated, evaluation_status)
+
+def evaluate_object(obj):
+    """"""
+    object_evaluation_status = EvaluationStatus.EVALUATED
+    value_evaluation_status = EvaluationStatus.NOT_EVALUATED
+    for k, v in obj.items():
         if isinstance(obj[k], str):
-            m = __FUNCTION_PLACEHOLDER.search(obj[k])
-            if m:
-                if m.group(1) == __SELF_REFERENCE:
-                    generated_obj_name = "gen" + random_uuid_string().replace('-', '_')
-                    globals()[generated_obj_name] = obj
-                    obj[k] = generated_obj_name + obj[k][m.end():]
-                    late_eval_list.append((obj, k))
-                else:
-                    obj[k] = eval(m.group(1), globals(), globals())            
+            obj[k], value_evaluation_status = evaluate_str(obj[k])
+            object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status)
         elif obj[k] is None:
             obj[k] = ""
-        elif isinstance(obj[k], dict):
-            obj[k] = transform_object(obj[k], late_eval_list)
+        elif isinstance(obj[k], Mapping):
+            obj[k], value_evaluation_status = evaluate_object(obj[k])
+            object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status)
+        elif isinstance(obj[k], Sequence):
+            evaluated_list = [evaluate_object(obj) for obj in obj[k]]
+            obj[k] = [val for val, status in evaluated_list]
+            for _, status in evaluated_list:
+                object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, status)
         else:
             raise Exception('Unknown value in template')
-    return obj    
-
-#TODO: rethink this function
-def eval_list(late_eval_list):
-    for late_eval_expr in late_eval_list:
-        late_eval_expr[0][late_eval_expr[1]] = eval(late_eval_expr[0][late_eval_expr[1]], globals(), globals()) 
+    return (obj, object_evaluation_status)
 
 def _random_char_sequence(num_of_symbols, char_base):
     """
@@ -112,17 +142,15 @@ def find_configuration(configuration_list, configuration_name):
     return deepcopy(result_list[0]) if result_list else {} 
     
 def _from_template(templates_list, template_name):
-    template = find_template(templates_list, template_name)["template"]
-    late_eval_list = []
-    transform_object(template, late_eval_list)
-    eval_list(late_eval_list)
-    return template    
+    return evaluate_object(object_stub_from_template(templates_list, template_name))[0]
+
+def object_stub_from_template(templates_list, template_name):
+    template = find_template(templates_list, template_name)["template"]    
+    return template
     
 def _from_configuration(configuration_list, configuration_name):
     configuration = find_configuration(configuration_list, configuration_name)
-    late_eval_list = []
-    transform_object(configuration, late_eval_list)
-    eval_list(late_eval_list)
+    evaluate_object(configuration)
     return configuration    
 
 def _init(templates, configuration):
@@ -149,6 +177,10 @@ def current_datetime():
 
 def from_cache(entity_type):
     entity = GLOBAL_CACHE.get_least_used(entity_type)
+    return entity.key
+
+def random_from_cache(entity_type):
+    entity = GLOBAL_CACHE.get_random(entity_type)    
     return entity.key
 
 def random_full_name():
@@ -203,3 +235,19 @@ def example_dir_path():
     else:
         example_dir = e.__file__
     return os.path.dirname(example_dir)
+
+# TODO: add possibility to plug-in module to object evaluation
+def test_constant_uuid():
+    return "398616f3-4fd8-4483-91c5-bea5933a7203"
+
+def test_constant_name():
+    return "James Gray"
+
+def test_constant_seq10():
+    return "NNTFRMNMZX"
+
+def test_status():
+    return "ACTIVE"
+
+def test_constant_date():
+    return "2020-02-03"

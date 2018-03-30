@@ -9,7 +9,6 @@ import logging
 import datagenerator.loader as loader
 from datagenerator.template.functions import _from_template
 from datagenerator.template.functions import example_dir_path
-from datagenerator.producer.csvproducer import produce_csv
 from datagenerator.validator.validator import ValidatorException
 from datagenerator.validator.validator import ParametersValidator
 from datagenerator.validator.validator import ModuleValidator

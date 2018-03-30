@@ -6,6 +6,8 @@ about created entitites.
 @author: Maksim_Selivanau
 '''
 
+import random
+
 class ElementNotFound(Exception):
     def __init__(self, *args, **kwargs):
         super(ElementNotFound, self).__init__(*args, **kwargs)
@@ -93,6 +95,16 @@ class GlobalCache(object):
         cls.remove_usage(element_type, element)
         element.usage_count += 1        
         cls.add_usage(element_type, element)
+        return element    
+    
+    @classmethod
+    def get_random(cls, element_type):
+        if element_type not in cls._cache_content:
+            raise ElementNotFound("{element_type} isn't found in cache!".format(element_type = element_type))
+        element_count = len(cls._cache_content[element_type])
+        element = list(cls._cache_content[element_type].values())[random.randrange(0, element_count)]
         return element
+        
+
     
 GLOBAL_CACHE = GlobalCache()    
