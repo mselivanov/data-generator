@@ -115,13 +115,13 @@ class CSVFileOutputStep(TextFileOutputStep):
                             prev_timestamp = current_timestamp
                         s = inmemfile.readline()                    
                         
-class ElasticsearchStep(WorkflowStep):
+class ElasticSearchOutputStep(WorkflowStep):
     """
     Quick and dirty solution for loading data to elasticsearch
     """    
     class Factory(object):
         def create(self, step, templates, configuration):
-            return ElasticsearchStep(step, templates, configuration)
+            return ElasticSearchOutputStep(step, templates, configuration)
         
     def __init__(self, step, templates, configuration):
         super().__init__(step, templates, configuration)
@@ -158,10 +158,10 @@ class ElasticsearchStep(WorkflowStep):
             raise NotImplementedError("Datasource type {0} isn't implemented".format(self.datasource["type"]))
         
 
-class PostgreSQLImportStep(WorkflowStep):
+class PostgreSQLOutputStep(WorkflowStep):
     class Factory(object):
         def create(self, step, templates, configuration):
-            return PostgreSQLImportStep(step, templates, configuration)
+            return PostgreSQLOutputStep(step, templates, configuration)
             
     def execute(self):
         file_table_list = zip(eval(self.input_files_list), eval(self.target_tables_list))

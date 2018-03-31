@@ -17,14 +17,6 @@ TEMPLATES = {"templates":
 ]
 }
 
-CONFIGURATION = {"configuration":
-[
-        {
-            "name": "data_folder",
-            "type": "localfs",
-            "path": "c:/Tmp/data"
-        }
-]}
 
 WORKFLOW = {"workflow":
 [
