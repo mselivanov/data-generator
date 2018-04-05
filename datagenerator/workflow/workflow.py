@@ -143,11 +143,14 @@ class ElasticsearchStep(WorkflowStep):
         """
         operation = self.get_operation()
         inmemfile = StringIO()
+        elastic_id = 1
         for obj in objs:
-            inmemfile.write('{{"create":{{"_id":"{0}"}}}}\n'.format(obj[self.datasource["id_key"]]))
+            # inmemfile.write('{{"create":{{"_id":"{0}"}}}}\n'.format(obj[self.datasource["id_key"]]))
+            inmemfile.write('{{"create":{{"_id":"{0}"}}}}\n'.format(elastic_id))
             inmemfile.write("{0}\n".format(json.dumps(obj)))
             url = "{0}".format(self.endpoint)
-        resp = operation(url=url, data=inmemfile.getvalue())
+            elastic_id += 1
+        resp = operation(url=url, headers={"Content-Type": "application/json"}, data=inmemfile.getvalue(), auth=requests.auth.HTTPBasicAuth("elastic", "elastic"))
         response_obj = resp.json()
         print("Elapsed time: {0}\n".format(response_obj["took"]))
         
@@ -192,8 +195,6 @@ class WorkflowStepExecutorFactory(object):
 class WorkflowProcessor(object):    
     
     def __init__(self, configuration_module):
-        self.__configuration_module = configuration_module
-        self.__configuration = configuration_module.CONFIGURATION
         self.__workflow = configuration_module.WORKFLOW
         self.__templates = configuration_module.TEMPLATES[constants.TEMPLATES_KEY]
     
