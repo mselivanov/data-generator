@@ -19,13 +19,18 @@ class WorkflowStep(object):
     
     _MAX_EVALUATION_ATTEMPTS = 100
     
-    def __init__(self, step, templates, configuration):
+    def __init__(self, step, templates):
         self._logger = logging.getLogger(self.__class__.__name__)
         self._logger.setLevel(logging.DEBUG)
+        self._init_dynamic_fields()
         self.__dict__.update(step)
         self._templates = templates
-        self._configuration = configuration    
     
+    def _init_dynamic_fields(self):
+        self.template = None
+        self.row_number = None
+
+
     def create_object_stubs(self):
         return [functions.object_stub_from_template(self._templates, self.template) for _ in range(self.row_number)]
     
@@ -53,8 +58,8 @@ class WorkflowStep(object):
 # TODO: pass TextIOWriter object to class for writing output
 class TextFileOutputStep(WorkflowStep):
     class Factory(object):
-        def create(self, step, templates, configuration):
-            return TextFileOutputStep(step, templates, configuration)
+        def create(self, step, templates):
+            return TextFileOutputStep(step, templates)
             
     def _transform(self, obj):
         for k, v in obj.items():
@@ -65,8 +70,8 @@ class TextFileOutputStep(WorkflowStep):
     def transform(self, objs):
         return [self._transform(obj) for obj in objs]
         
-    def __init__(self, step, templates, configuration):
-        super().__init__(step, templates, configuration)
+    def __init__(self, step, templates):
+        super().__init__(step, templates)
         output_path = {"output_path": self.output_path}
         functions.evaluate_object(output_path)
         self.output_path = output_path["output_path"]
@@ -86,8 +91,8 @@ class TextFileOutputStep(WorkflowStep):
         
 class CSVFileOutputStep(TextFileOutputStep):
     class Factory(object):
-        def create(self, step, templates, configuration):
-            return CSVFileOutputStep(step, templates, configuration)
+        def create(self, step, templates):
+            return CSVFileOutputStep(step, templates)
 
     def write_output(self, objs, append = False):
         if objs:
@@ -120,11 +125,11 @@ class ElasticSearchOutputStep(WorkflowStep):
     Quick and dirty solution for loading data to elasticsearch
     """    
     class Factory(object):
-        def create(self, step, templates, configuration):
-            return ElasticSearchOutputStep(step, templates, configuration)
+        def create(self, step, templates):
+            return ElasticSearchOutputStep(step, templates)
         
-    def __init__(self, step, templates, configuration):
-        super().__init__(step, templates, configuration)
+    def __init__(self, step, templates):
+        super().__init__(step, templates)
         self.template = self.datasource["template"]
         
     def get_operation(self):
@@ -160,12 +165,11 @@ class ElasticSearchOutputStep(WorkflowStep):
 
 class PostgreSQLOutputStep(WorkflowStep):
     class Factory(object):
-        def create(self, step, templates, configuration):
-            return PostgreSQLOutputStep(step, templates, configuration)
+        def create(self, step, templates):
+            return PostgreSQLOutputStep(step, templates)
             
     def execute(self):
         file_table_list = zip(eval(self.input_files_list), eval(self.target_tables_list))
-        # TODO: change configuration retrieval
         connection_configuration = functions._from_configuration(self._configuration["configuration"], self.connection)
         params = {}
         params['connection_configuration'] = connection_configuration
@@ -193,7 +197,6 @@ class WorkflowProcessor(object):
     
     def __init__(self, configuration_module):
         self.__configuration_module = configuration_module
-        self.__configuration = configuration_module.CONFIGURATION
         self.__workflow = configuration_module.WORKFLOW
         self.__templates = configuration_module.TEMPLATES[constants.TEMPLATES_KEY]
     
@@ -202,5 +205,5 @@ class WorkflowProcessor(object):
         for step in self.__workflow[constants.WORKFLOW_KEY]:
             workflow_class_name = step[constants.STEP_TYPE_KEY]
             factory = WorkflowStepExecutorFactory.get_factory(workflow_class_name)
-            workflow_class = factory.create(step, self.__templates, self.__configuration)
+            workflow_class = factory.create(step, self.__templates)
             workflow_class.execute()

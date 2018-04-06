@@ -34,23 +34,6 @@ TEMPLATES = {"templates":
     }
     ]}
     
-CONFIGURATION = {"configuration":
-[
-        {
-            "name": "localdb",
-            "type": "database",
-            "host": "localhost",
-            "port": "5440",
-            "dbname": "customer",
-            "user": "postgres",
-            "password": "postgres"
-        },
-        {
-            "name": "data_folder",
-            "type": "localfs",
-            "path": "c:/Tmp/data"
-        }
-]}
 
 RESULTS = {"results":
 [{

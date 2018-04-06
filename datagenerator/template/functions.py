@@ -31,54 +31,6 @@ from_configuration = None
 # TODO: move object evaluation to dedicated module
 # TODO: implement object evaluation using classes
 
-class EvaluationStatus(Enum):
-    NOT_EVALUATED = 0
-    PARTIALLY_EVALUATED = 1
-    EVALUTED_TILL_SELF = 2
-    EVALUATED = 100    
-
-def calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status):
-    # Decrease object evaluation status
-    if object_evaluation_status.value > value_evaluation_status.value:
-        return value_evaluation_status
-    return object_evaluation_status
-
-def evaluate_str(str_value):
-    """"""
-    m = __PLACEHOLDER.search(str_value)
-    evaluated = str_value
-    evaluation_status = EvaluationStatus.EVALUATED
-    if m:
-        evaluated = m.group(1)
-        if __PLACEHOLDER.search(evaluated):
-            evaluation_status = EvaluationStatus.PARTIALLY_EVALUATED
-        else:
-            evaluated = eval(evaluated, globals(), globals())
-            if isinstance(evaluated, Mapping) or isinstance(evaluated, Sequence):
-                evaluation_status = EvaluationStatus.PARTIALLY_EVALUATED            
-    return (evaluated, evaluation_status)
-
-def evaluate_object(obj):
-    """"""
-    object_evaluation_status = EvaluationStatus.EVALUATED
-    value_evaluation_status = EvaluationStatus.NOT_EVALUATED
-    for k, v in obj.items():
-        if isinstance(obj[k], str):
-            obj[k], value_evaluation_status = evaluate_str(obj[k])
-            object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status)
-        elif obj[k] is None:
-            obj[k] = ""
-        elif isinstance(obj[k], Mapping):
-            obj[k], value_evaluation_status = evaluate_object(obj[k])
-            object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status)
-        elif isinstance(obj[k], Sequence):
-            evaluated_list = [evaluate_object(obj) for obj in obj[k]]
-            obj[k] = [val for val, status in evaluated_list]
-            for _, status in evaluated_list:
-                object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, status)
-        else:
-            raise Exception('Unknown value in template')
-    return (obj, object_evaluation_status)
 
 def _random_char_sequence(num_of_symbols, char_base):
     """
