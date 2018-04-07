@@ -35,15 +35,25 @@ RESULTS = {"results":
         "site_code": "NNTFRMNMZX",
         "status": "ACTIVE",
         "status_expiration_date": "2020-02-03"
+    },
+    {
+        "customer_id": "398616f3-4fd8-4483-91c5-bea5933a7203",
+        "customer_name": "James Gray",
+        "site_code": "NNTFRMNMZX",
+        "status": "ACTIVE",
+        "status_expiration_date": "2020-02-03"
     }]}
     
 
 import unittest
-import json
 
 import datagenerator.template.evaluator as e
+import datagenerator.template.functions as f
 
 class EvaluatorTest(unittest.TestCase):
+    
+    def setUp(self):
+        f._init(TEMPLATES)
     
     def test_str_evaluation_literal(self):
         expression_to_evaluate = "This is the end"
@@ -195,6 +205,16 @@ class EvaluatorTest(unittest.TestCase):
         self.assertEqual(expected_result, actual_result.value)
         self.assertEqual(e.EvaluationStatus.PARTIALLY_EVALUATED, 
                          actual_result.status)
+        
+    def test_full_template_list_eval(self):
+        expression_to_evaluate = TEMPLATES["templates"]
+        evaluator = e.TemplateEvaluator("\$\{(.+)\}", "")
+        actual_result = evaluator.evaluate(expression_to_evaluate)
+        expected_result =  RESULTS["results"]
+        self.assertEqual(expected_result, actual_result.value)
+        self.assertEqual(e.EvaluationStatus.PARTIALLY_EVALUATED, 
+                         actual_result.status)
+        
 
 if __name__ == "__main__":
     unittest.main()

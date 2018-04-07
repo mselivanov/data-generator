@@ -16,9 +16,6 @@ from datetime import date
 from datetime import timedelta
 import names
 from random_words import RandomWords
-from enum import Enum
-from collections.abc import Mapping
-from collections.abc import Sequence
 
 from datagenerator.cache.cache import GLOBAL_CACHE
 
@@ -105,11 +102,10 @@ def _from_configuration(configuration_list, configuration_name):
     evaluate_object(configuration)
     return configuration    
 
-def _init(templates, configuration):
+def _init(templates):
     global from_template
     global from_configuration
     from_template = partial(_from_template, templates) 
-    from_configuration = partial(_from_configuration, configuration) 
 
 def cache(entity_key, entity_type):
     """

@@ -4,10 +4,11 @@ Module contains classes for evaluating templates.
 
 import re
 import enum
-import json
 
 from collections.abc import Mapping
 from collections.abc import Sequence
+
+
 
 class EvaluationStatus(enum.Enum):
     NOT_EVALUATED = 0
@@ -36,10 +37,25 @@ class TemplateEvaluator(object):
     def evaluate(self, template_list: list) -> list:
         """
         Function evaluates list of templates passed in a constructor.
-        Returns: list of evaluated objects.
+        Function mutates list passed as a parameter.
+        Returns: EvaluationResult object. EvaluationResult.value equals to \
+        mutated parameter list. EvaluationResult.status equals to \
+        EvaluationStatus.EVALUATED
         """
-        raise NotImplementedError()
-    
+        total_evaluation_status = EvaluationStatus.NOT_EVALUATED
+        while total_evaluation_status != EvaluationStatus.EVALUATED:
+            total_evaluation_status = EvaluationStatus.EVALUATED
+            for i in range(len(template_list)):
+                current_template = template_list[i]
+                evaluate_func = self._dispatch_evaluation(current_template)
+                evaluated_object = evaluate_func(current_template)
+                total_evaluation_status = \
+                    TemplateEvaluator._evaluation_status \
+                                    (total_evaluation_status, 
+                                     evaluated_object.status)
+                template_list[i] = evaluated_object.value       
+        return EvaluationResult(template_list, total_evaluation_status)
+   
     @classmethod
     def _evaluation_status(cls, object_status, field_evaluation_status):
         if field_evaluation_status.value < object_status.value:
