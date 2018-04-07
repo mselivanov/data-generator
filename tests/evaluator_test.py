@@ -47,8 +47,10 @@ RESULTS = {"results":
 
 import unittest
 
-import datagenerator.template.evaluator as e
-import datagenerator.template.functions as f
+from testcontext import datagenerator as d
+
+e = d.template.evaluator
+f = d.template.functions
 
 class EvaluatorTest(unittest.TestCase):
     

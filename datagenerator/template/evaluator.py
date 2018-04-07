@@ -8,6 +8,7 @@ import enum
 from collections.abc import Mapping
 from collections.abc import Sequence
 
+from datagenerator.template.functions import *
 
 
 class EvaluationStatus(enum.Enum):
