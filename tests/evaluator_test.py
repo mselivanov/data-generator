@@ -209,12 +209,12 @@ class EvaluatorTest(unittest.TestCase):
                          actual_result.status)
         
     def test_full_template_list_eval(self):
-        expression_to_evaluate = TEMPLATES["templates"]
+        expression_to_evaluate = [TEMPLATES["templates"][0]["template"],TEMPLATES["templates"][1]["template"]]
         evaluator = e.TemplateEvaluator("\$\{(.+)\}", "")
         actual_result = evaluator.evaluate(expression_to_evaluate)
         expected_result =  RESULTS["results"]
         self.assertEqual(expected_result, actual_result.value)
-        self.assertEqual(e.EvaluationStatus.PARTIALLY_EVALUATED, 
+        self.assertEqual(e.EvaluationStatus.EVALUATED, 
                          actual_result.status)
         
 

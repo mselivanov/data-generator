@@ -92,11 +92,7 @@ def find_configuration(configuration_list, configuration_name):
     
 def _from_template(templates_list, template_name):
     return evaluate_object(object_stub_from_template(templates_list, template_name))[0]
-
-def object_stub_from_template(templates_list, template_name):
-    template = find_template(templates_list, template_name)["template"]    
-    return template
-    
+   
 def _from_configuration(configuration_list, configuration_name):
     configuration = find_configuration(configuration_list, configuration_name)
     evaluate_object(configuration)

@@ -7,3 +7,4 @@ sys.path.append(application_path)
 
 import datagenerator.template.evaluator
 import datagenerator.template.functions
+import datagenerator.workflow.workflow

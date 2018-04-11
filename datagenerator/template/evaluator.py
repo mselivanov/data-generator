@@ -7,6 +7,7 @@ import enum
 
 from collections.abc import Mapping
 from collections.abc import Sequence
+from copy import deepcopy
 
 from datagenerator.template.functions import *
 
@@ -78,7 +79,6 @@ class TemplateEvaluator(object):
             return self._evaluate_list
         else:
             raise ValueError("Type %s is unknown".format(type(value)))
-            
 
     def _evaluate_leaf(self, leaf_value):
         str_value = str(leaf_value)
@@ -110,7 +110,6 @@ class TemplateEvaluator(object):
                 TemplateEvaluator._evaluation_status(evaluation_status,
                                                      evaluated_object.status)
         return EvaluationResult(evaluated_value, evaluation_status)
-                
 
     def _evaluate_list(self, list_value: list) -> EvaluationResult:
         evaluation_status = EvaluationStatus.EVALUATED
@@ -123,3 +122,16 @@ class TemplateEvaluator(object):
                 TemplateEvaluator._evaluation_status(evaluation_status,
                                                      evaluated_object.status)
         return EvaluationResult(evaluated_value, evaluation_status)
+
+    @staticmethod
+    def object_stub_from_template(templates, template_name):
+        """
+        Function finds template by template name and creates object stub from template
+        """
+        for template in templates:
+            if template_name == template["name"]:
+                return deepcopy(template["template"])
+        return {}    
+
+
+
