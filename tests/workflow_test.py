@@ -77,6 +77,25 @@ WORKFLOW_STEPS = {
         	"uri": "dbname=postgres user=postgres password=postgres host=localhost port=5440",
         	"table_name": "test_dg.test_pg_loader"
         	}
+    },
+    "HTTPRequestOutputStep1":
+    {
+        "type": "HTTPRequestOutputStep",
+        "object_number": 10, 
+        "headers": {"Content-Type": "application/json" },
+	"authentication": {
+		"type": "basic",
+		"username": "elastic",
+		"password": "elastic"
+	},
+        "input": {
+        	"type": "template", 
+        	"path": "customer"
+        	},
+        "output": {
+        	"uri": "http://localhost:9200/customers/customer",
+        	"verb": "POST"
+        	}
     }
 }
 
@@ -172,6 +191,15 @@ class WorkflowTest(unittest.TestCase):
         step["input"]["path"] = path_to_expected_file
         ws = wf.PostgreSQLOutputStep(step, templates)
         ws.execute()
+
+    def test_http_output_step_send_entity_to_elastic(self):
+        templates = TEMPLATES["templates"]
+        step = WORKFLOW_STEPS["HTTPRequestOutputStep1"]
+        ws = wf.HTTPRequestOutputStep(step, templates)
+        objs = ws._create_object_stubs()
+        evaluated_objs = ws._pre_write_transform(ws._evaluate_objects(objs))
+        ws._write_output(evaluated_objs)
+        ws._post_write()
 
 if __name__ == "__main__":
     unittest.main()    

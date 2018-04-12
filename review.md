@@ -100,6 +100,35 @@ WORKFLOW = {"workflow":
     }
 ]}
 ```
+### HTPPRequestOutputStep
+#### Step description
+Sends http put or post request to an endpoint with a body generated from template.
+#### Step template
+```python
+WORKFLOW = {"workflow":
+[
+    {
+        "type": "HTTPRequestOutputStep",
+        "object_number": 10, # Mandatory. Number of objects to generate and output
+	"headers": {"Content-Type": "application/json"},
+	"authentication": {
+		"type": "basic",
+		"username": "username",
+		"password": "password"
+	},
+        "input": {
+        	"type": "template", # Currently only generation from template is supported.
+        	"path": "<template name>" 			# Template name
+        	},
+        "output": {
+        	"uri": "http://localhost:9200/persons/person/", # Endpoint
+        	"verb": "PUT" # HTTP verb to use
+        	}
+    }
+]}
+```
+
+
 ### ElasticSearchOutputStep
 #### Step description
 Sends generated object to elasticsearch engine in a body of a http request.

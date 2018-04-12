@@ -102,6 +102,43 @@ class CSVFileOutputStep(TextFileOutputStep):
             # TODO: remove this magic transformation
             self._output_file.write(inmemfile.getvalue().replace(',""', ','))
                             
+class HTTPRequestOutputStep(WorkflowStep):
+    """
+    Class for sending http request
+    """
+    class Factory(object):
+        def create(self, step, templates):
+            return HTTPRequestOutputStep(step, templates)
+        
+    def __init__(self, step, templates):
+        super().__init__(step, templates)
+        self._authentication = (self.authentication["username"],\
+                self.authentication["password"])
+
+    def _pre_write_transform(self, objs):
+        return objs
+
+    def _post_write(self):
+        pass 
+
+    def _dispatch(self):
+        verb = self.output["verb"]
+        if verb == "POST":
+            return requests.post
+        elif verb == "PUT":
+            return requests.put
+        else:
+            raise ValueError("Verb '{0}' isn't supported".format(verb))
+
+    def _write_output(self, *args, **kwargs):
+        objs = args[0]
+        if not objs:
+            raise ValueError("List of objects must be present!")
+        request_func = self._dispatch()
+        for obj in objs:
+            resp = request_func(url=self.output["uri"], headers=self.headers, data=json.dumps(obj), auth=self._authentication)
+            print(resp.json())
+
 class ElasticSearchOutputStep(WorkflowStep):
     """
     Quick and dirty solution for loading data to elasticsearch
