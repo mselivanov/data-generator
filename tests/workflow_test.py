@@ -8,10 +8,12 @@ Created on Fri Mar 30 13:44:40 2018
 import os
 import unittest
 from io import StringIO
-from io import SEEK_SET
 import json
+import requests
 
 from testcontext import datagenerator as d
+from test_mock_http_server import MockHTTPServer
+from test_mock_http_server import MockHTTPServerRequestHandler
 
 func = d.template.functions
 wf = d.workflow.workflow
@@ -106,7 +108,16 @@ RESULTS = {"results":
         "site_code": "NNTFRMNMZX",
         "status": "ACTIVE",
         "status_expiration_date": "2020-02-03"}]}
- 
+
+HTTP_RESPONSES = {'/': 
+            {
+                "status": requests.codes.not_found, 
+                "headers": {"Content-Type":"application/json"},
+                "body": []
+                }
+            }
+
+
 class WorkflowTest(unittest.TestCase):
     
     def setUp(self):
@@ -200,6 +211,14 @@ class WorkflowTest(unittest.TestCase):
         evaluated_objs = ws._pre_write_transform(ws._evaluate_objects(objs))
         ws._write_output(evaluated_objs)
         ws._post_write()
+
+    def test_mock_server(self):
+        MockHTTPServer.setup()
+        MockHTTPServer.start_server()
+        MockHTTPServerRequestHandler.set_mock_response("GET", HTTP_RESPONSES)
+        resp = requests.get(url="http://localhost:{port}".format(port=MockHTTPServer.mock_server_port))
+        print(resp)
+        print(MockHTTPServerRequestHandler._request_mappings)
 
 if __name__ == "__main__":
     unittest.main()    
