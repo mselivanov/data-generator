@@ -14,27 +14,34 @@ import datagenerator.template.constants as constants
 import datagenerator.template.functions as functions
 import datagenerator.template.evaluator as e
 
+class WorkflowStepResult(object):
+    def __init__(self, step_result):
+        self._step_result = step_result
+
+    @property
+    def result(self):
+        return self._step_result
+
 class WorkflowStep(object):
     """
     Base class for all workflow steps.
     """
-    
     def __init__(self, step, templates):
         self._logger = logging.getLogger(self.__class__.__name__)
         self._logger.setLevel(logging.DEBUG)
         self.__dict__.update(step)
         self._templates = templates
-    
+
     def _create_object_stubs(self):
         return [e.TemplateEvaluator.object_stub_from_template(self._templates, self.input["path"]) for _ in range(self.object_number)]
-    
+
     def _evaluate_objects(self, templates):
         template_evaluator = e.TemplateEvaluator("\$\{(.+)\}", "")
         evaluation_result = template_evaluator.evaluate(templates)
         if evaluation_result.status != e.EvaluationStatus.EVALUATED:
             raise ValueError("Templates weren't evaluated")
         return evaluation_result.value
-   
+
     def _pre_write_transform(self, objs):
         raise NoteImplementedError("_pre_write_transform in WorkflowStep is not implemented")
 
@@ -61,8 +68,8 @@ class TextFileOutputStep(WorkflowStep):
 
     def __init__(self, step, templates):
         super().__init__(step, templates)
-        self._output_file = open(self.output["path"], "w") 
-            
+        self._output_file = open(self.output["path"], "w")
+
     def _transform(self, obj):
         for k, v in obj.items():
             if isinstance(v, Mapping):
@@ -78,30 +85,32 @@ class TextFileOutputStep(WorkflowStep):
             raise ValueError("List of objects must be present!")
         with StringIO() as inmemfile:
             for obj in objs:
-                inmemfile.write(json.dumps(obj) + "\n")                
+                inmemfile.write(json.dumps(obj) + "\n")
             self._output_file.write(inmemfile.getvalue())
+        return WorkflowStepResult(None)
 
     def _post_write(self):
         if self._output_file:
             self._output_file.close()
-       
+
 class CSVFileOutputStep(TextFileOutputStep):
     class Factory(object):
         def create(self, step, templates):
             return CSVFileOutputStep(step, templates)
 
-    def _write_output(self, *args, **kwargs): 
+    def _write_output(self, *args, **kwargs):
         objs = args[0]
         if not objs:
             raise ValueError("List of objects must be present!")
- 
-        with StringIO() as inmemfile:        
+
+        with StringIO() as inmemfile:
             fieldnames = objs[0].keys()
             writer = csv.DictWriter(inmemfile, fieldnames = fieldnames, dialect=csv.unix_dialect)
             writer.writerows(objs)
             # TODO: remove this magic transformation
             self._output_file.write(inmemfile.getvalue().replace(',""', ','))
-                            
+        return WorkflowStepResult(None)
+
 class HTTPRequestOutputStep(WorkflowStep):
     """
     Class for sending http request
@@ -109,7 +118,7 @@ class HTTPRequestOutputStep(WorkflowStep):
     class Factory(object):
         def create(self, step, templates):
             return HTTPRequestOutputStep(step, templates)
-        
+
     def __init__(self, step, templates):
         super().__init__(step, templates)
         self._authentication = (self.authentication["username"],\
@@ -119,7 +128,7 @@ class HTTPRequestOutputStep(WorkflowStep):
         return objs
 
     def _post_write(self):
-        pass 
+        pass
 
     def _dispatch(self):
         verb = self.output["verb"]
@@ -135,22 +144,24 @@ class HTTPRequestOutputStep(WorkflowStep):
         if not objs:
             raise ValueError("List of objects must be present!")
         request_func = self._dispatch()
+        results = []
         for obj in objs:
             resp = request_func(url=self.output["uri"], headers=self.headers, data=json.dumps(obj), auth=self._authentication)
-            print(resp.json())
+            results.append(resp)
+        return WorkflowStepResult(results)
 
 class ElasticSearchOutputStep(WorkflowStep):
     """
     Quick and dirty solution for loading data to elasticsearch
-    """    
+    """
     class Factory(object):
         def create(self, step, templates):
             return ElasticSearchOutputStep(step, templates)
-        
+
     def __init__(self, step, templates):
         super().__init__(step, templates)
         self.template = self.datasource["template"]
-        
+
     def get_operation(self):
         if self.operation == "PUT":
             return requests.put
@@ -160,7 +171,7 @@ class ElasticSearchOutputStep(WorkflowStep):
             return requests.get
         else:
             raise NotImplementedError("Operation {0} isn't implemented".format(self.operation))
-    
+
     def write_output(self, objs):
         """
         TODO: Remove hard code for bulk
@@ -174,13 +185,12 @@ class ElasticSearchOutputStep(WorkflowStep):
         resp = operation(url=url, data=inmemfile.getvalue())
         response_obj = resp.json()
         print("Elapsed time: {0}\n".format(response_obj["took"]))
-        
+
     def execute(self):
         if self.datasource["type"] == "template":
             super().execute()
         else:
             raise NotImplementedError("Datasource type {0} isn't implemented".format(self.datasource["type"]))
-        
 
 class PostgreSQLOutputStep(WorkflowStep):
     class Factory(object):
@@ -194,7 +204,7 @@ class PostgreSQLOutputStep(WorkflowStep):
         pass
 
     def _pre_write_transform(self, objs):
-        pass 
+        pass
 
     def _write_output(self, *args, **kwargs):
         import psycopg2 as pg
@@ -202,41 +212,42 @@ class PostgreSQLOutputStep(WorkflowStep):
             cursor = dbconn.cursor()
             file_path = self.input["path"]
             sql = "COPY {table_name} FROM STDIN WITH (FORMAT CSV, DELIMITER ',', QUOTE '\"')"\
-                    .format(table_name = self.output["table_name"], file_path = file_path) 
+                    .format(table_name = self.output["table_name"], file_path = file_path)
             with open(file_path, "r") as f:
                 cursor.copy_expert(sql, f)
             cursor.close()
             dbconn.commit()
+        return WorkflowStepResult(None)
 
     def _post_write(self):
         pass
 
     def execute(self):
         self._write_output()
-       
+
 class WorkflowStepExecutorFactory(object):
     """
     Class returns factory for producing worflow steps
     """
     __factories = {}
-    
+
     @classmethod
     def add_factory(cls, class_name):
         cls.__factories[class_name] = eval("{0}.Factory()".format(class_name))
-    
+
     @classmethod
     def get_factory(cls, class_name):
         if not class_name in cls.__factories:
             cls.add_factory(class_name)
         return cls.__factories[class_name]
-        
-class WorkflowProcessor(object):    
-    
+
+class WorkflowProcessor(object):
+
     def __init__(self, configuration_module):
         self.__configuration_module = configuration_module
         self.__workflow = configuration_module.WORKFLOW
         self.__templates = configuration_module.TEMPLATES[constants.TEMPLATES_KEY]
-    
+
     def execute(self):
         functions._init(self.__templates, self.__configuration)
         for step in self.__workflow[constants.WORKFLOW_KEY]:

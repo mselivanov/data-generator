@@ -42,7 +42,7 @@ TEMPLATES = {"templates":
         }
     }
     ]}
-    
+
 WORKFLOW_STEPS = {
         "TextFileOutputStep1": 
     {
@@ -83,7 +83,7 @@ WORKFLOW_STEPS = {
     "HTTPRequestOutputStep1":
     {
         "type": "HTTPRequestOutputStep",
-        "object_number": 10, 
+        "object_number": 2,
         "headers": {"Content-Type": "application/json" },
 	"authentication": {
 		"type": "basic",
@@ -91,13 +91,13 @@ WORKFLOW_STEPS = {
 		"password": "elastic"
 	},
         "input": {
-        	"type": "template", 
-        	"path": "customer"
-        	},
+            "type": "template",
+            "path": "customer"
+    },
         "output": {
-        	"uri": "http://localhost:9200/customers/customer",
-        	"verb": "POST"
-        	}
+            "uri": "http://localhost:9200/customers/customer",
+            "verb": "POST"
+        }
     }
 }
 
@@ -109,20 +109,37 @@ RESULTS = {"results":
         "status": "ACTIVE",
         "status_expiration_date": "2020-02-03"}]}
 
-HTTP_RESPONSES = {'/': 
+HTTP_RESPONSES = {"/customers/customer":
             {
-                "status": requests.codes.not_found, 
+                "status": requests.codes.ok,
                 "headers": {"Content-Type":"application/json"},
-                "body": []
-                }
+                "body":  {
+                    "_index": "customers",
+                    "_type": "customer",
+                    "_id": "DQgvvmIBnK0QQvnzCmex",
+                    "_version": 1,
+                    "result": "created",
+                    "_shards": {
+                        "total": 2,
+                        "successful": 1,
+                        "failed": 0
+                    },
+                    "_seq_no": 49,
+                    "_primary_term": 1
+                    }
             }
+}
 
 
 class WorkflowTest(unittest.TestCase):
-    
+
+    func._init(TEMPLATES)
+    MockHTTPServer.setup()
+    MockHTTPServer.start_server()
+
     def setUp(self):
-        func._init(TEMPLATES)
-        
+        pass
+
     def tearDown(self):
         pass
 
@@ -193,7 +210,7 @@ class WorkflowTest(unittest.TestCase):
         with open(path_to_actual_file, "r") as actual_f:
             with open(path_to_expected_file, "r") as expected_f:
                 self.assertEqual(expected_f.read(), actual_f.read())
-    
+
     def test_postgresql_output(self):
         step = WORKFLOW_STEPS["PostgreSQLOutputStep1"]
         templates = None
@@ -203,22 +220,23 @@ class WorkflowTest(unittest.TestCase):
         ws = wf.PostgreSQLOutputStep(step, templates)
         ws.execute()
 
-    def test_http_output_step_send_entity_to_elastic(self):
+    def test_http_output_step_send_entity_to_mock(self):
         templates = TEMPLATES["templates"]
         step = WORKFLOW_STEPS["HTTPRequestOutputStep1"]
+        MockHTTPServerRequestHandler.set_mock_response("POST", HTTP_RESPONSES)
+        step["output"]["uri"] = "http://localhost:{port}/customers/customer".format(port=MockHTTPServer.mock_server_port)
         ws = wf.HTTPRequestOutputStep(step, templates)
         objs = ws._create_object_stubs()
         evaluated_objs = ws._pre_write_transform(ws._evaluate_objects(objs))
-        ws._write_output(evaluated_objs)
+        mock_responses = ws._write_output(evaluated_objs)
         ws._post_write()
-
-    def test_mock_server(self):
-        MockHTTPServer.setup()
-        MockHTTPServer.start_server()
-        MockHTTPServerRequestHandler.set_mock_response("GET", HTTP_RESPONSES)
-        resp = requests.get(url="http://localhost:{port}".format(port=MockHTTPServer.mock_server_port))
-        print(resp)
-        print(MockHTTPServerRequestHandler._request_mappings)
+        requests = MockHTTPServerRequestHandler.get_request("POST", "/customers/customer")
+        self.assertEqual(2, len(requests))
+        for request in requests:
+            self.assertEqual(RESULTS["results"][0], json.loads(request))
+        expected_response = HTTP_RESPONSES["/customers/customer"]["body"]
+        for response in mock_responses.result:
+            self.assertEqual(expected_response, response.json())
 
 if __name__ == "__main__":
-    unittest.main()    
+    unittest.main()

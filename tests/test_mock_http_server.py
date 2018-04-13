@@ -13,6 +13,13 @@ class MockHTTPServerRequestHandler(BaseHTTPRequestHandler):
     _request_mappings = {"GET":{}, "POST":{}, "PUT":{}}
 
     @classmethod
+    def get_request(cls, verb, path):
+        """
+        Returns list of objects sent in request body
+        """
+        return cls._request_mappings[verb][path]
+
+    @classmethod
     def find_response_mapping(cls, verb, path):
         keys = sorted(cls._response_mappings[verb].keys(), key=lambda k: -len(k))
         for key in keys:
@@ -33,14 +40,11 @@ class MockHTTPServerRequestHandler(BaseHTTPRequestHandler):
             cls._request_mappings[verb][path] = []
         cls._request_mappings[verb][path].append(body)
 
-    def do_GET(self):
+    def save_request(self):
         content_len = int(self.headers.get('content-length', 0))
         MockHTTPServerRequestHandler.register_request(self.command, self.path, self.rfile.read(content_len).decode(encoding="utf-8"))
-        mapping = MockHTTPServerRequestHandler.find_response_mapping(self.command, self.path)
-        if mapping:
-            pass
-        else:
-            raise ValueError("Mapping for path {0} is not found".format(self.path))
+
+    def send_mock_response(self, mapping):
         status = mapping["status"]
         headers = mapping["headers"]
         body = mapping["body"]
@@ -49,7 +53,21 @@ class MockHTTPServerRequestHandler(BaseHTTPRequestHandler):
             self.send_header(key, value)
         self.end_headers()
         self.wfile.write(json.dumps(body).encode('utf-8'))
+
+    def execute_mock_workflow(self):
+        self.save_request()
+        mapping = MockHTTPServerRequestHandler.find_response_mapping(self.command, self.path)
+        if not mapping:
+            raise ValueError("Mapping for verb '{0}' and path {1} is not found"\
+                             .format(self.command, self.path))
+        self.send_mock_response(mapping)
         return
+
+    def do_GET(self):
+        self.execute_mock_workflow()
+
+    def do_POST(self):
+        self.execute_mock_workflow()
 
 class MockHTTPServer(object):
 
@@ -64,7 +82,7 @@ class MockHTTPServer(object):
     @classmethod
     def start_server(cls):
         cls.mock_server = HTTPServer(("localhost", cls.mock_server_port), \
-               MockHTTPServerRequestHandler) 
+               MockHTTPServerRequestHandler)
         cls.mock_server_thread = Thread(target=cls.mock_server.serve_forever)
         cls.mock_server_thread.setDaemon(True)
         cls.mock_server_thread.start()
