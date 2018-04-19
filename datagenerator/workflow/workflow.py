@@ -14,6 +14,8 @@ import datagenerator.template.constants as constants
 import datagenerator.template.functions as functions
 import datagenerator.template.evaluator as e
 
+_EVALUATION_NAMESPACE = {}
+
 class WorkflowStepResult(object):
     def __init__(self, step_result):
         self._step_result = step_result
@@ -36,7 +38,7 @@ class WorkflowStep(object):
         return [e.TemplateEvaluator.object_stub_from_template(self._templates, self.input["path"]) for _ in range(self.object_number)]
 
     def _evaluate_objects(self, templates):
-        template_evaluator = e.TemplateEvaluator("\$\{(.+)\}", "")
+        template_evaluator = e.TemplateEvaluator("\$\{(.+)\}", "", functions.get_templates_namespace())
         evaluation_result = template_evaluator.evaluate(templates)
         if evaluation_result.status != e.EvaluationStatus.EVALUATED:
             raise ValueError("Templates weren't evaluated")
@@ -249,7 +251,7 @@ class WorkflowProcessor(object):
         self.__templates = configuration_module.TEMPLATES[constants.TEMPLATES_KEY]
 
     def execute(self):
-        functions._init(self.__templates, self.__configuration)
+        functions._init(self.__templates)
         for step in self.__workflow[constants.WORKFLOW_KEY]:
             workflow_class_name = step[constants.STEP_TYPE_KEY]
             factory = WorkflowStepExecutorFactory.get_factory(workflow_class_name)

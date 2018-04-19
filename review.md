@@ -14,7 +14,7 @@
 Contains modules for launching application, loading configuration module and parsing command line.
 
 ## cache
-Contains modules implementing data caching for application. Caching is used to generate dependent data.
+Contains modules implementing data caching for application. Caching is used to exchange data between workflow steps. 
 
 ## example
 Package contains examples of configuration modules.

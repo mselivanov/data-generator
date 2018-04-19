@@ -9,33 +9,31 @@ from collections.abc import Mapping
 from collections.abc import Sequence
 from copy import deepcopy
 
-from datagenerator.template.functions import *
-
-
 class EvaluationStatus(enum.Enum):
     NOT_EVALUATED = 0
     PARTIALLY_EVALUATED = 1
     EVALUTED_TILL_SELF = 2
-    EVALUATED = 100    
+    EVALUATED = 100
 
 class EvaluationResult(object):
     def __init__(self, value, status: EvaluationStatus):
         self._value = value
         self._status = status
-    
+
     @property
     def value(self):
         return self._value
-    
+
     @property
     def status(self):
         return self._status
 
 class TemplateEvaluator(object):
-    def __init__(self, placeholder_regex, none_value):
+    def __init__(self, placeholder_regex, none_value, namespace):
         self._placeholder_regex = re.compile(placeholder_regex)
         self._none_value = none_value
-    
+        self._namespace = namespace
+
     def evaluate(self, template_list: list) -> list:
         """
         Function evaluates list of templates passed in a constructor.
@@ -53,23 +51,23 @@ class TemplateEvaluator(object):
                 evaluated_object = evaluate_func(current_template)
                 total_evaluation_status = \
                     TemplateEvaluator._evaluation_status \
-                                    (total_evaluation_status, 
+                                    (total_evaluation_status,
                                      evaluated_object.status)
-                template_list[i] = evaluated_object.value       
+                template_list[i] = evaluated_object.value
         return EvaluationResult(template_list, total_evaluation_status)
-   
+
     @classmethod
     def _evaluation_status(cls, object_status, field_evaluation_status):
         if field_evaluation_status.value < object_status.value:
             return field_evaluation_status
         return object_status
-    
+
     @classmethod
     def _is_leaf_type(cls, value):
         return isinstance(value, str) \
                 or isinstance(value, int) \
                 or isinstance(value, float)
-    
+
     def _dispatch_evaluation(self, value):
         if TemplateEvaluator._is_leaf_type(value):
             return self._evaluate_leaf
@@ -91,7 +89,8 @@ class TemplateEvaluator(object):
                 evaluation_status = EvaluationStatus.PARTIALLY_EVALUATED
                 evaluated_value = code_to_execute
             else:
-                evaluated_value = eval(code_to_execute, globals(), globals())
+                evaluated_value = eval(code_to_execute, self._namespace,\
+                                       self._namespace)
                 if TemplateEvaluator._is_leaf_type(evaluated_value):
                     evaluation_status = EvaluationStatus.EVALUATED
                 else:
@@ -131,7 +130,7 @@ class TemplateEvaluator(object):
         for template in templates:
             if template_name == template["name"]:
                 return deepcopy(template["template"])
-        return {}    
+        return {}
 
 
 
