@@ -20,17 +20,17 @@ TEMPLATES = {"templates":
 
 WORKFLOW = {"workflow":
 [
-#    {
-#        "type": "TextFileOutputStep",
-#        "object_number": 10,    # Mandatory. Number of objects to generate and output
-#        "input": {
-#            "type": "template", # Type of input data. Possible values: template 
-#        	"path": "person" 	# Template name
-#        	},
-#        "output": {
-#            "path": "c:/Tmp/text_file_output_example.txt" # Path to output file
-#        	}
-#    },
+    {
+        "type": "TextFileOutputStep",
+        "object_number": 10,    # Mandatory. Number of objects to generate and output
+        "input": {
+            "type": "template", # Type of input data. Possible values: template 
+        	"path": "person" 	# Template name
+        	},
+        "output": {
+            "path": "c:/Tmp/text_file_output_example.txt" # Path to output file
+        	}
+    },
     {
         "type": "CSVFileOutputStep",
         "object_number": 10,    # Mandatory. Number of objects to generate and output
