@@ -1,6 +1,6 @@
 """
 @author Maksim Selivanov
-Module contains functions for generating data from template. 
+Module contains functions for generating data from template.
 """
 
 from random import randint
@@ -16,69 +16,16 @@ from datetime import date
 from datetime import timedelta
 import names
 from random_words import RandomWords
-from enum import Enum
-from collections.abc import Mapping
-from collections.abc import Sequence
 
 from datagenerator.cache.cache import GLOBAL_CACHE
+import datagenerator.template.evaluator as evaluator
 
-__PLACEHOLDER = re.compile('\$\{(.+)\}')
-__SELF_REFERENCE = "SELF"
 __RANDOM_WORDS = RandomWords()
 from_template = None
-from_configuration = None
+_TEMPLATE_EVALUATOR = evaluator.TemplateEvaluator("\$\{(.+)\}","", globals())
 
-# TODO: move object evaluation to dedicated module
-# TODO: implement object evaluation using classes
-
-class EvaluationStatus(Enum):
-    NOT_EVALUATED = 0
-    PARTIALLY_EVALUATED = 1
-    EVALUTED_TILL_SELF = 2
-    EVALUATED = 100    
-
-def calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status):
-    # Decrease object evaluation status
-    if object_evaluation_status.value > value_evaluation_status.value:
-        return value_evaluation_status
-    return object_evaluation_status
-
-def evaluate_str(str_value):
-    """"""
-    m = __PLACEHOLDER.search(str_value)
-    evaluated = str_value
-    evaluation_status = EvaluationStatus.EVALUATED
-    if m:
-        evaluated = m.group(1)
-        if __PLACEHOLDER.search(evaluated):
-            evaluation_status = EvaluationStatus.PARTIALLY_EVALUATED
-        else:
-            evaluated = eval(evaluated, globals(), globals())
-            if isinstance(evaluated, Mapping) or isinstance(evaluated, Sequence):
-                evaluation_status = EvaluationStatus.PARTIALLY_EVALUATED            
-    return (evaluated, evaluation_status)
-
-def evaluate_object(obj):
-    """"""
-    object_evaluation_status = EvaluationStatus.EVALUATED
-    value_evaluation_status = EvaluationStatus.NOT_EVALUATED
-    for k, v in obj.items():
-        if isinstance(obj[k], str):
-            obj[k], value_evaluation_status = evaluate_str(obj[k])
-            object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status)
-        elif obj[k] is None:
-            obj[k] = ""
-        elif isinstance(obj[k], Mapping):
-            obj[k], value_evaluation_status = evaluate_object(obj[k])
-            object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, value_evaluation_status)
-        elif isinstance(obj[k], Sequence):
-            evaluated_list = [evaluate_object(obj) for obj in obj[k]]
-            obj[k] = [val for val, status in evaluated_list]
-            for _, status in evaluated_list:
-                object_evaluation_status = calculate_object_evaluation_status(object_evaluation_status, status)
-        else:
-            raise Exception('Unknown value in template')
-    return (obj, object_evaluation_status)
+# Data geneeration functions
+## Template functions for generating character sequences
 
 def _random_char_sequence(num_of_symbols, char_base):
     """
@@ -88,77 +35,97 @@ def _random_char_sequence(num_of_symbols, char_base):
     seq_len = len(char_base)
     return ''.join([char_base[randint(0, seq_len-1)] for _ in range(num_of_symbols)])
 
-def random_int(start, end):
+def random_uuid_string():
     """
-    Function generates random integer N such as start<=N<=end 
-    """    
-    seed()
-    return randint(start, end)
+    Generates random UUID and returns it as a hex string: '12345678-1234-5678-1234-567812345678'
+    """
+    return str(uuid4())
 
-def choose_element(element_list):
-    """
-    Function returns random element from the list
-    """
-    return element_list[random_int(0, len(element_list)-1)]
-    
-    
 def alpha(num_of_symbols):
     """
     Returns string of random characters with a length of num_of_symbols
     """
     return _random_char_sequence(num_of_symbols, ascii_letters)
 
+## Template functions for generating words and sentences
 def random_word():
     return __RANDOM_WORDS.random_word()
 
 def random_sentence(word_count):
     return " ".join(__RANDOM_WORDS.random_words(count = word_count))
-    
+
+## Template functions for generating people's names
+def random_full_name():
+    return names.get_full_name()
+
+## Template functions for generating dates
+def random_date(start_years_from_now, end_years_from_now):
+    """
+    Function returns random date in a period. Where:
+        - starting date is today plus start_years_from_now
+        - ending date is today plus end_years_from_now
+    """
+    _today = datetime.today()
+    start_date = _today.replace(year = _today.year + start_years_from_now)
+    end_date = _today.replace(year = _today.year + end_years_from_now)
+    random_date = start_date + timedelta(days = random_int(0, (end_date - start_date).days))
+    return date.isoformat(random_date)
+
+def past_random_date(start_years_from_now, end_years_from_now):
+    return random_date(-start_years_from_now, -end_years_from_now)
+
+def future_random_date(start_years_from_now, end_years_from_now):
+    """
+    Function returns random date in a period. Where:
+        - starting date is today plus start_years_from_now
+        - ending date is today plus end_years_from_now
+    """
+    return random_date(start_years_from_now, end_years_from_now)
+
+def current_datetime():
+    """
+    Returns current datetime (local) in format YYYY-MM-DDTHH24:MI:SS.SSSSSS
+    """
+    return datetime.isoformat(datetime.now())
+
+## Template functions for generating numbers
+def random_int(start, end):
+    """
+    Function generates random integer N such as start<=N<=end
+    """
+    seed()
+    return randint(start, end)
+
+# Data manipulation functions
+## Random selection functions
+def choose_element(element_list):
+    """
+    Function returns random element from the list
+    """
+    return element_list[random_int(0, len(element_list)-1)]
+
+## Data structures generation functions
 def array(num_elements, element_func, *element_func_args):
     """
     Returns array of elements with a length of num_elements.
     Every element is generated by a call to element_func(*element_func_args).
     """
-    return [element_func(*element_func_args) for _ in range(num_elements)]    
+    return [element_func(*element_func_args) for _ in range(num_elements)]
 
-def random_uuid_string():    
-    """
-    Generates random UUID and returns it as a hex string: '12345678-1234-5678-1234-567812345678'
-    """
-    return str(uuid4())
-    
+def _from_template(templates_list, template_name):
+    evaluated_objects = _TEMPLATE_EVALUATOR.evaluate([find_template(templates_list, template_name)])
+    if evaluated_objects.status != evaluator.EvaluationStatus.EVALUATED:
+        raise ValueError("Template wasn't evaluated")
+    return evaluated_objects.value[0]
+
 def find_template(templates_list, template_name):
     """
-    Function returns copy of a template with a name template_name from templates_list. 
+    Function returns copy of a template with a name template_name from templates_list.
     """
     result_list = [template for template in templates_list if template_name == template['name']]
-    return deepcopy(result_list[0]) if result_list else {"template":{}} 
+    return deepcopy(result_list[0]) if result_list else {"template":{}}
 
-def find_configuration(configuration_list, configuration_name):
-    """
-    Function returns copy of a configuration with a name configuration_name from configuration_list. 
-    """
-    result_list = [configuration for configuration in configuration_list if configuration_name == configuration['name']]
-    return deepcopy(result_list[0]) if result_list else {} 
-    
-def _from_template(templates_list, template_name):
-    return evaluate_object(object_stub_from_template(templates_list, template_name))[0]
-
-def object_stub_from_template(templates_list, template_name):
-    template = find_template(templates_list, template_name)["template"]    
-    return template
-    
-def _from_configuration(configuration_list, configuration_name):
-    configuration = find_configuration(configuration_list, configuration_name)
-    evaluate_object(configuration)
-    return configuration    
-
-def _init(templates, configuration):
-    global from_template
-    global from_configuration
-    from_template = partial(_from_template, templates) 
-    from_configuration = partial(_from_configuration, configuration) 
-
+## Data interchange functions
 def cache(entity_key, entity_type):
     """
     Function adds entity key to global cache
@@ -169,72 +136,21 @@ def cache(entity_key, entity_type):
 def is_in_cache(entity_type, entity_key):
     return GLOBAL_CACHE.probe(entity_type, entity_key)
 
-def current_datetime():
-    """
-    Returns current datetime (local) in format YYYY-MM-DDTHH24:MI:SS.SSSSSS 
-    """
-    return datetime.isoformat(datetime.now())
-
 def from_cache(entity_type):
     entity = GLOBAL_CACHE.get_least_used(entity_type)
     return entity.key
 
 def random_from_cache(entity_type):
-    entity = GLOBAL_CACHE.get_random(entity_type)    
+    entity = GLOBAL_CACHE.get_random(entity_type)
     return entity.key
 
-def random_full_name():
-    return names.get_full_name()
+# Functions to make this module work
+def _init(templates):
+    global from_template
+    from_template = partial(_from_template, templates)
 
-def random_date(start_years_from_now, end_years_from_now):
-    """
-    Function returns random date in a period. Where: 
-        - starting date is today plus start_years_from_now
-        - ending date is today plus end_years_from_now
-    """
-    _today = datetime.today()
-    start_date = _today.replace(year = _today.year + start_years_from_now)
-    end_date = _today.replace(year = _today.year + end_years_from_now)
-    random_date = start_date + timedelta(days = random_int(0, (end_date - start_date).days))
-    return date.isoformat(random_date)
-
-    
-def past_random_date(start_years_from_now, end_years_from_now):
-    return random_date(-start_years_from_now, -end_years_from_now)
-    
-def future_random_date(start_years_from_now, end_years_from_now):
-    """
-    Function returns random date in a period. Where: 
-        - starting date is today plus start_years_from_now
-        - ending date is today plus end_years_from_now
-    """
-    return random_date(start_years_from_now, end_years_from_now)
-    
-def generate_unique_key(key_format, key_parts_generators, entity_type, num_of_tries):
-    while True:
-        key_parts_values = {}
-        for k, v in  key_parts_generators.items():
-            key_parts_values[k] = v[0](*v[1:])
-        key_candidate = key_format.format(**key_parts_values)  
-        if not GLOBAL_CACHE.probe(entity_type, key_candidate):
-            return key_candidate
-        num_of_tries -= 1
-        if num_of_tries <= 0:
-            raise Exception('Failed to generate unique key for: {0}'.format(entity_type))  
-
-# File operations functions
-def join_path(*path_components):
-    return os.path.join(*path_components)
-            
-# Example section
-def example_dir_path():
-    import datagenerator.example.example as e
-    example_dir = '.'
-    if hasattr(e, '__path__'):
-        example_dir = e.__path__[0]
-    else:
-        example_dir = e.__file__
-    return os.path.dirname(example_dir)
+def get_templates_namespace():
+    return globals()
 
 # TODO: add possibility to plug-in module to object evaluation
 def test_constant_uuid():

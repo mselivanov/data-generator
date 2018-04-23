@@ -11,13 +11,12 @@ Features:
 * load data to PostgreSQL from csv file.
 ## Scenarios
 ### 1. Create input file.
-**Story.** As a user I want to configure my templates, my datasources and execution workflow so that I can launch data generator.
+**Story.** As a user I want to configure my templates and execution workflow so that I can launch data generator.
 Steps:
 * Create python file.
-* Add definitions of 3 dicts to file:
+* Add definitions of 2 dicts to file:
 ```python
 TEMPLATES = {}
-CONFIGURATION = {}
 WORKFLOW = {}
 ```
 That's it - we have a skeleton for our data generation template.
@@ -33,23 +32,16 @@ TEMPLATES = {"templates":
     {
         "name":"person",
         "template": {
-            "common": {
-                "name": "${random_full_name()}",
-                "type": "personal",
-                "birthDate": "${random_date(200, 30)}",
-                "deathDate": "${random_date(5, 1)}",
-                "dateEstablished": "",
-                "description": "${alpha(random_int(50, 200))}"    
-            }
+            "person_id": "${cache(random_uuid_string(), 'person')}",
+            "person_name": "${random_full_name()}",
         }
     },
     {
-        "name": "tbl_person",
+        "name":"person_table",
         "template": {
-            "person_key": "${cache(random_uuid_string(), 'tbl_person')}",
-            "person_deleted_dts": "",
+            "id": "${random_uuid_string()}",
             "person_data": "${from_template('person')}"
-        } 
+        }
     }
 ]
 }
@@ -57,39 +49,12 @@ TEMPLATES = {"templates":
 Every template is required to have the following fields:
 * name - template name
 * template - dictionary representing actual template.
+
 At its root template is a set of name/value pairs. Names must be string literals and values could be:
 * string literals
 * placeholders for function calls. All supported template functions are listed in Template functions section.
     
-### 4. Create data source configuration.
-**Story.** As a user I want to define where my data is stored physically so that I can persist generated data.
-
-Configuration dict is used to describe physical data location.
-
-```python
-CONFIGURATION = {"configuration":
-[
-        {
-            "name": "localdb",
-            "type": "database",
-            "host": "localhost",
-            "port": "5432",
-            "dbname": "postgres",
-            "user": "user",
-            "password": "password"
-        },
-        {
-            "name": "data_folder",
-            "type": "localfs",
-            "path": "c:/Tmp/data"
-        }
-]}
-```
-Currently only two types of physical data location are supported:
-* PostgreSQL database
-* local file system
-
-### 5. Create workflow.
+### 3. Create workflow.
 **Story**. As a user I want to define sequence of steps for data generation so that I can get data I need in the physical location of interest.
 
 Workflow list is used to define sequence of steps needed to generate data. Steps are executed sequentially, in the order of definition.
@@ -98,32 +63,36 @@ Workflow list is used to define sequence of steps needed to generate data. Steps
 WORKFLOW = {"workflow":
 [
     {
-        "type": "CSVFileOutputStep",
-        "template": "tbl_customer",
-        "row_number": 20000,
-        "output_path": "c:/Tmp/data/tbl_person.csv"
+        "type": "TextFileOutputStep",
+        "object_number": 10,    # Mandatory. Number of objects to generate and output
+        "input": {
+            "type": "template", # Type of input data. Possible values: template 
+        	"path": "person" 	# Template name
+        	},
+        "output": {
+            "path": "c:/Tmp/text_file_output_example.txt" # Path to output file
+        	}
     },
     {
-        "type": "postgres_import",
-        "connection": "from_configuration('localdb')",
-        "input_files_list": """['c:/Tmp/data/tbl_person.csv]""",
-        "target_tables_list": """['person.person']"""
+        "type": "CSVFileOutputStep",
+        "object_number": 10,    # Mandatory. Number of objects to generate and output
+        "input": {
+            "type": "template", # Type of input data. Possible values: template 
+        	"path": "person_table" 	# Template name
+        	},
+        "output": {
+            "path": "c:/Tmp/csv_file_output_example.csv" # Path to output file
+        	}
     }
+
 ]}
 ```
-Supported step types:
-* CSVFileOutputStep - output template data to file
-* postgres_import - load data to PostgreSQL from csv file
+### 4. Launch data generation. 
+**Story**. As a user I want to launch data generation and load so that I have all data where I need it. 
+From command line run the following sequence of commands.
 
-## Implementation Details
-### Application architecture
-### Template module
-### Template functions
-### Global cache
-### Template processor
-### Workflow processor
-### Producer
-#### File Producer
-### Converter
-#### File to database table converter
-## Open Issues
+```bash
+cd <root project directory>
+python -m datagenerator.datagenerator <full path to configuration module we've created in previous stories>
+```
+

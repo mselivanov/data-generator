@@ -100,5 +100,5 @@ ENV/
 # mypy
 .mypy_cache/
 
-# Vim files
+# IDE, editors
 *.swp
